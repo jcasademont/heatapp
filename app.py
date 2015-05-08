@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, render_template
 from flask.ext.sqlalchemy import SQLAlchemy
 import os
 
@@ -8,13 +8,9 @@ db = SQLAlchemy(app)
 
 from models import Temperatures
 
-@app.route("/")
-def hello():
-    return "Hello world"
-
-@app.route("/<name>")
-def hello_name(name):
-    return "Hello {}".format(name)
+@app.route("/", methods=['GET', 'POST'])
+def index():
+    return render_template('index.html')
 
 if __name__ == "__main__":
     app.run()
