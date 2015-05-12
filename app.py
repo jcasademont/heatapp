@@ -49,6 +49,8 @@ def simulate():
     names = list(data_layout.keys())
     temps = [data_layout[n][2] for n in names]
     data = dict(zip(['l1_' + n for n in names], temps))
+    for k in ahus.keys():
+        data['l1_' + k] = ahus[k]
 
     for i in range(t):
         x = build_vector(data)
@@ -62,7 +64,6 @@ def simulate():
         x, y, _ = data_layout[k]
         v = data['l1_' + k]
         results.update({k: (x, y, v)})
-
     return json.dumps(results)
 
 if __name__ == "__main__":
