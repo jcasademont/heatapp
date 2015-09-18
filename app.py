@@ -7,7 +7,7 @@ app.config.from_object(os.environ['APP_SETTINGS'])
 db = SQLAlchemy(app)
 
 from models import Temperatures
-from datacenter import datacenter, datacenter_layout, gmrf, build_vector
+from datacenter import datacenter, datacenter_layout, gmrf, hrf, build_vector
 
 import json
 
@@ -34,9 +34,10 @@ def get_layout():
     t = int(params["t"])
     keys = list(datacenter_layout.keys())
     for k in keys:
-        x, y = datacenter_layout[k]
-        v = datacenter[k][t]
-        data[k] = (x, y, v)
+        if k in datacenter.columns.values:
+            x, y = datacenter_layout[k]
+            v = datacenter[k][t]
+            data[k] = (x, y, v)
     return json.dumps(data)
 
 @app.route("/simulate", methods=['POST'])

@@ -1,12 +1,14 @@
 import warnings
 import numpy as np
 from scipy.special import erfinv
-from numpy.linalg import inv, cholesky, solve
+from numpy.linalg import inv, cholesky
 from sklearn.covariance import GraphLassoCV, GraphLasso
 
-class GMRF():
+from .gaussian import GaussianModel
 
-    def __init__(self, method="cv", variables_names=[], alpha=None, verbose=False):
+class GMRF(GaussianModel):
+
+    def __init__(self, method="bic", variables_names=[], alpha=None, verbose=False):
         self.alpha_ = alpha
         self.method_ = method
         self.bic_scores = []
@@ -14,12 +16,6 @@ class GMRF():
         self.mean_ = None
         self.verbose = verbose
         self.variables_names = np.array(variables_names)
-
-    def check(self):
-        if self.precision_ is None:
-            raise ValueError("The precision matrix is not set")
-        elif self.mean_ is None:
-            raise ValueError("The mean vector is not set")
 
     def fit(self, X):
         self.mean_ = np.mean(X, axis=0)
@@ -30,13 +26,13 @@ class GMRF():
             gl.fit(X)
             self.precision_ = gl.precision_
 
-        elif self.method_ is 'cv':
+        elif self.method_ == 'cv':
             gl = GraphLassoCV(verbose=self.verbose)
             gl.fit(X)
             self.alpha_ = gl.alpha_
             self.precision_ = gl.precision_
 
-        elif self.method_ is 'bic':
+        elif self.method_ == 'bic':
             min_score = np.inf
             min_precision = None
             alphas = np.arange(0.0, 5.0, 0.1)
@@ -62,7 +58,7 @@ class GMRF():
             self.precision_ = min_precision
 
         else:
-            raise NotImplementedError(method +
+            raise NotImplementedError(self.method_ +
                     " is not a valid method, use 'cv' or 'bic'")
 
     def _logpdf(self, x, mean, Q):
@@ -122,78 +118,3 @@ class GMRF():
 
         return -2 * ll + nb_params * np.log(X.shape[0]) \
             + 4 * nb_params * gamma * np.log(X.shape[1]), converged
-
-    def predict(self, X, names):
-        self.check()
-
-        Q = self.precision_
-        mu = self.mean_
-
-        indices = [np.where(self.variables_names == n)[0][0] for n in names]
-
-        _indices = list(filter(lambda x: x not in indices,
-                                np.arange(Q.shape[0])))
-
-        new_indices = np.append(indices, _indices)
-
-        _Q = (Q[new_indices, :])[:, new_indices]
-
-        lim_a = np.size(indices)
-        Qaa = _Q[:lim_a, :lim_a]
-        Qab = _Q[:lim_a, lim_a:]
-
-        iQaa = inv(Qaa)
-
-        mean_a = mu[indices]
-        mean_b = mu[_indices]
-
-        preds = np.zeros((X.shape[0], np.size(indices)))
-
-        for i in range(preds.shape[0]):
-            pred = mean_a - (np.dot(iQaa,
-                    np.dot(Qab, (X[i, _indices] - mean_b).T))).reshape(mean_a.shape)
-            preds[i, :] = pred
-
-        return preds
-
-    def variances(self, names):
-        self.check()
-
-        Q = self.precision_
-        mu = self.mean_
-
-        indices = [np.where(self.variables_names == n)[0][0] for n in names]
-
-        _indices = list(filter(lambda x: x not in indices,
-                                np.arange(Q.shape[0])))
-
-        new_indices = np.append(indices, _indices)
-
-        _Q = (Q[new_indices, :])[:, new_indices]
-
-        lim_a = np.size(indices)
-        Qaa = _Q[:lim_a, :lim_a]
-        Qab = _Q[:lim_a, lim_a:]
-
-        iQaa = inv(Qaa)
-
-        return np.diag(iQaa)
-
-    def sample(self, size=1):
-        self.check()
-
-        Q = self.precision_
-        mu = self.mean_
-
-        n = Q.shape[0]
-
-        L = cholesky(Q).T
-
-        samples = np.empty((size, n))
-
-        for i in range(size):
-            z = np.random.multivariate_normal([0] * n, np.eye(n))
-            v = solve(L, z)
-            samples[i, :] = v + mu
-
-        return samples
